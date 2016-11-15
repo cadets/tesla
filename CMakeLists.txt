@@ -2,19 +2,30 @@ cmake_minimum_required(VERSION 2.6)
 
 project(TESLA)
 
-set(CMAKE_MODULE_PATH
-  ${CMAKE_MODULE_PATH}
-  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
+
+find_package(LLVM REQUIRED CONFIG)
+list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+
+# Based on http://stackoverflow.com/questions/27863706:
+#
+# AddLLVM expects LLVM{LIBRARY,RUNTIME}_OUTPUT_INTDIR to be set in order
+# to build successfully out of the LLVM tree on non-Mac platforms.
+set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/bin)
+set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/lib)
+
+include(HandleLLVMOptions)
+include(AddLLVM)
+
+add_definitions(${LLVM_DEFINITIONS})
+include_directories(${LLVM_INCLUDE_DIRS})
+link_directories(${LLVM_LIBRARY_DIRS})
 
 #
 # CMake helpers.
 #
 include(cmake/Concatenate.cmake)
 include(cmake/CopyFiles.cmake)
-
-# Include LLVM configuration:
-find_package(LLVM REQUIRED)
-include(AddLLVM)
 
 if(NOT CMAKE_LLVM_CONFIG)
 	set(CMAKE_LLVM_CONFIG llvm-config)
@@ -23,17 +34,6 @@ endif()
 if(NOT CMAKE_LLVM_LIT)
 	set(CMAKE_LLVM_LIT llvm-lit)
 endif()
-
-# Make sure we can find llvm-config!
-exec_program(${CMAKE_LLVM_CONFIG} ARGS --version  OUTPUT_VARIABLE LLVM_VERSION)
-if("${LLVM_VERSION}" MATCHES "not found")
-  message(FATAL_ERROR "llvm-config not found; may need to set PATH?")
-endif()
-
-exec_program(${CMAKE_LLVM_CONFIG} ARGS --includedir OUTPUT_VARIABLE LLVM_INCDIR)
-exec_program(${CMAKE_LLVM_CONFIG} ARGS --libdir   OUTPUT_VARIABLE LLVM_LIBDIR)
-exec_program(${CMAKE_LLVM_CONFIG} ARGS --src-root OUTPUT_VARIABLE LLVM_SRC)
-exec_program(${CMAKE_LLVM_CONFIG} ARGS --obj-root OUTPUT_VARIABLE LLVM_OBJ)
 
 # Find the Clang "resource dir" (contains include/stdarg.h, etc.).
 if(NOT CLANG_RESOURCE_DIR)
@@ -66,45 +66,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D GOOGLE_PROTOBUF_NO_RTTI")
 #
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-#
-# Global include directories for all of TESLA:
-#
-include_directories(${LLVM_INCDIR})
-# Add includes from src and obj only if we're building from a
-# non-installed copy.
-if (${LLVM_SRC}/include STREQUAL ${LLVM_INCDIR})
-	include_directories(
-		${LLVM_OBJ}/include
-		${LLVM_SRC}/tools/clang/include
-		${LLVM_OBJ}/tools/clang/include
-	)
-endif()
 include_directories(
 	include                          # [lib]tesla.h
 	${CMAKE_BINARY_DIR}/include      # config.h
 )
-
-
-# Default to libc++ if installed.
-find_package(LibCXX)
-
-set(USE_LIBCXX ${LIBCXX_FOUND} CACHE BOOL "Use libc++ when building TESLA")
-if (USE_LIBCXX)
-  message(STATUS "Using libc++")
-else ()
-  message(STATUS "Using the default system STL implementation")
-endif ()
-
-if (USE_LIBCXX)
-  set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -stdlib=libc++")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-
-  if( ${CMAKE_SYSTEM_NAME} MATCHES FreeBSD )
-    set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -l cxxrt")
-  endif ()
-
-  include_directories(${LIBCXX_INCLUDE_DIRS})
-endif ()
 
 
 #

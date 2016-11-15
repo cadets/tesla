@@ -37,10 +37,10 @@
 #include "Types.h"
 
 #include <llvm/ADT/ArrayRef.h>
-#include <llvm/ADT/OwningPtr.h>
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/Support/Casting.h>
 
+#include <memory>
 #include <string>
 
 namespace llvm {
@@ -190,7 +190,7 @@ public:
    * @param[out] Args    where to store the resulting array of arguments
    * @param[out] Ref     a reference to the created arguments; includes length
    */
-  void ReferencesThusFar(llvm::OwningArrayPtr<const Argument*>& Args,
+  void ReferencesThusFar(std::vector<std::unique_ptr<const Argument>>& Args,
                          ReferenceVector& Ref) const;
 
   //! Can this transition be captured by real instrumentation code?
@@ -211,10 +211,10 @@ public:
   virtual TransitionKind getKind() const = 0;
 
 protected:
-  static void Register(llvm::OwningPtr<Transition>&, State& From, State& To,
+  static void Register(std::unique_ptr<Transition>&, State& From, State& To,
                        TransitionVector&);
 
-  static void Append(const llvm::OwningPtr<Transition>&, TransitionSets&);
+  static void Append(const std::unique_ptr<Transition>&, TransitionSets&);
 
   Transition(const google::protobuf::Message *Protobuf,
              const State& From, const State& To, bool Init, bool Cleanup,
@@ -393,7 +393,7 @@ private:
 
   const FieldAssignment& Assign;
 
-  llvm::OwningArrayPtr<const Argument*> ReferencedVariables;
+  std::vector<const Argument*> ReferencedVariables;
   ReferenceVector Refs;
 
   friend class Transition;

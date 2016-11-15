@@ -93,19 +93,3 @@ raw_ostream& tesla::debugs(StringRef DebugModuleName) {
   static raw_null_ostream NullStream;
   return NullStream;
 }
-
-#ifndef NDEBUG
-#include <llvm/Support/Signals.h>
-
-namespace {
-
-class StaticDebugInit {
-public:
-  StaticDebugInit() {
-    sys::PrintStackTraceOnErrorSignal();
-  }
-
-} DebugInit;
-
-}
-#endif

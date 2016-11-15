@@ -40,19 +40,20 @@
 
 using namespace llvm;
 using std::string;
+using std::unique_ptr;
 
 namespace tesla {
 
 State* State::Builder::Build() {
-  llvm::OwningPtr<State> New(new State(States.size(), Start, Accept, Name));
+  unique_ptr<State> New(new State(States.size(), Start, Accept, Name));
   States.push_back(New.get());
 
   if (RefCount >= 0) {
     auto& Refs = New->VariableReferences;
-    Refs.reset(new const Argument*[RefCount]);
-    bzero(Refs.get(), RefCount * sizeof(Refs[0]));
+    Refs.resize(RefCount);
+    bzero(Refs.data(), RefCount * sizeof(Refs[0]));
 
-    New->Refs = MutableReferenceVector(Refs.get(), RefCount);
+    New->Refs = MutableReferenceVector(Refs.data(), RefCount);
   }
 
   return New.take();
@@ -62,7 +63,7 @@ State::~State() {
   for (Transition *T : Transitions) delete T;
 }
 
-void State::AddTransition(OwningPtr<Transition>& T)
+void State::AddTransition(unique_ptr<Transition>& T)
 {
   Transitions.push_back(T.take());
 }
