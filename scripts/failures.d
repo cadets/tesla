@@ -3,12 +3,15 @@
  * DTrace script to print information about TESLA failures.
  */
 /*
- * Copyright (c) 2013 Jonathan Anderson
+ * Copyright (c) 2013, 2016 Jonathan Anderson
  * All rights reserved.
  *
  * This software was developed by SRI International and the University of
  * Cambridge Computer Laboratory under DARPA/AFRL contract (FA8750-10-C-0237)
- * ("CTSRD"), as part of the DARPA CRASH research programme.
+ * ("CTSRD"), as part of the DARPA CRASH research programme, as well as by BAE
+ * Systems, the University of Cambridge Computer Laboratory, and Memorial
+ * University under DARPA/AFRL contract FA8650-15-C-7558 ("CADETS"), as part of
+ * the DARPA Transparent Computing (TC) research program.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,36 +37,44 @@
 
 tesla::fail:bad-transition
 {
-	name = stringof(args[0]->tc_name);
-	inst = args[1];
-	transitions = args[2];
+	automaton = args[0]->tc_automaton;
+	name = stringof(automaton->ta_name);
 
-	printf("%s:%s", execname, name);
-	@bad_transition[execname, name,
-	                inst->ti_key.tk_mask, inst->ti_state,
-	                stringof(transitions->description), stack()] = count();
+	instance = args[1];
+	state = instance->ti_state;
+	mask = instance->ti_key.tk_mask;
+
+	symbol = args[2];
+	transitions = automaton->ta_transitions + symbol;
+	transition = transitions->transitions;
+
+	@bad_transition[execname, name, state, mask, symbol, stack()] = count();
 }
 
-tesla::fail:no-instance-match
+tesla::fail:no-instance
 {
-	name = stringof(args[0]->tc_name);
+	automaton = args[0]->tc_automaton;
+	name = stringof(automaton->ta_name);
+	description = stringof(automaton->ta_description);
 	instances = args[1];
 	key = args[2];
 	transitions = args[3];
 
 	printf("%s:%s", execname, name);
 	@no_instance[execname, name, stringof(key),
-	             stringof(transitions->description), stringof(instances),
-	             stack()] = count();
+	             description, stringof(instances), stack()] = count();
 }
 
 tesla::fail:other-error
 {
-	name = stringof(args[0]->tc_name);
-	errnum = args[1];
-	message = stringof(args[2]);
+	automaton = args[0];
+	symbol = args[1];
+	errnum = args[2];
+	message = stringof(args[3]);
 
-	printf("%s:%s - error %d; %s", execname, name, errnum, message);
+	name = stringof(automaton->ta_name);
+
+	printf("%s:%s - %d error %d; %s", execname, name, symbol, errnum, message);
 	@other[execname, name, errnum, message, stack()] = count();
 }
 
@@ -75,7 +86,7 @@ END
 	printf("Bad transition:\n");
 	printf("---------------------------------------");
 	printf("---------------------------------------\n");
-	printa("%@6u:%-12s  %s\n%6d:0x%-10x  %s%k\n", @bad_transition);
+	printa("%@6u:%-12s  %s\n%6d:0x%-10x %d %k\n", @bad_transition);
 	printf("=======================================");
 	printf("=======================================\n");
 
